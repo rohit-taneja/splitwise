@@ -28,6 +28,7 @@ class SplitEasy {
             this.setupEventListeners();
             this.switchTab('users');
         }
+        this.syncData()
     }
     
     setupEventListeners() {

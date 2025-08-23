@@ -137,17 +137,17 @@ class SplitEasy {
         // Only load sample data if no existing data
         if (this.users.length === 0) {
             this.users = [
-                {id: '1', name: 'Alex', color: '#FF6B6B'},
-                {id: '2', name: 'Maya', color: '#4ECDC4'},
-                {id: '3', name: 'Sam', color: '#45B7D1'}
+                // {id: '1', name: 'Alex', color: '#FF6B6B'},
+                // {id: '2', name: 'Maya', color: '#4ECDC4'},
+                // {id: '3', name: 'Sam', color: '#45B7D1'}
             ];
         }
         
         if (this.expenses.length === 0) {
             this.expenses = [
-                {id: '1', description: 'Dinner at Restaurant', amount: 120, payer: '1', participants: ['1', '2', '3'], date: '2025-08-20'},
-                {id: '2', description: 'Groceries', amount: 80, payer: '2', participants: ['1', '2'], date: '2025-08-21'},
-                {id: '3', description: 'Movie tickets', amount: 60, payer: '3', participants: ['2', '3'], date: '2025-08-22'}
+                // {id: '1', description: 'Dinner at Restaurant', amount: 120, payer: '1', participants: ['1', '2', '3'], date: '2025-08-20'},
+                // {id: '2', description: 'Groceries', amount: 80, payer: '2', participants: ['1', '2'], date: '2025-08-21'},
+                // {id: '3', description: 'Movie tickets', amount: 60, payer: '3', participants: ['2', '3'], date: '2025-08-22'}
             ];
         }
     }

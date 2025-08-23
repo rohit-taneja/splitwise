@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SplitEasy - Modern Expense Splitting</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">💰</span>
+                    <h1>SplitEasy</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="sync-status" id="syncStatus">
+                        <span class="sync-icon">🔄</span>
+                        <span class="sync-text">Ready</span>
+                    </div>
+                    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="users">
+                <span class="tab-icon">👥</span>
+                <span class="tab-text">Users</span>
+            </button>
+            <button class="nav-tab" data-tab="expenses">
+                <span class="tab-icon">💰</span>
+                <span class="tab-text">Expenses</span>
+            </button>
+            <button class="nav-tab" data-tab="history">
+                <span class="tab-icon">📊</span>
+                <span class="tab-text">History</span>
+            </button>
+            <button class="nav-tab" data-tab="settlements">
+                <span class="tab-icon">🤝</span>
+                <span class="tab-text">Settlements</span>
+            </button>
+            <button class="nav-tab" data-tab="sync">
+                <span class="tab-icon">🔄</span>
+                <span class="tab-text">Sync</span>
+            </button>
+        </nav>
+
+        <!-- Content Area -->
+        <main class="content">
+            <!-- Users Tab -->
+            <section class="tab-content active" id="users">
+                <div class="tab-header">
+                    <h2>Manage Users</h2>
+                </div>
+                
+                <div class="add-user-form card">
+                    <div class="card__body">
+                        <div class="form-group">
+                            <label class="form-label" for="userName">Add New User</label>
+                            <div class="input-group">
+                                <input type="text" id="userName" class="form-control" placeholder="Enter user name">
+                                <button class="btn btn--primary" id="addUser">
+                                    <span>➕</span> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="users-list" id="usersList">
+                    <!-- Users will be populated here -->
+                </div>
+            </section>
+
+            <!-- Expenses Tab -->
+            <section class="tab-content" id="expenses">
+                <div class="tab-header">
+                    <h2>Expenses</h2>
+                </div>
+
+                <div class="add-expense-form card">
+                    <div class="card__body">
+                        <h3>Add New Expense</h3>
+                        <div class="form-group">
+                            <label class="form-label" for="expenseDescription">Description</label>
+                            <input type="text" id="expenseDescription" class="form-control" placeholder="What was this expense for?">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="expenseAmount">Amount</label>
+                            <input type="number" id="expenseAmount" class="form-control" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="expensePayer">Who Paid?</label>
+                            <select id="expensePayer" class="form-control">
+                                <option value="">Select payer</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Split Between</label>
+                            <div class="participants-list" id="participantsList">
+                                <!-- Participants checkboxes will be populated here -->
+                            </div>
+                        </div>
+                        <button class="btn btn--primary btn--full-width" id="addExpense">
+                            <span>➕</span> Add Expense
+                        </button>
+                    </div>
+                </div>
+
+                <div class="expenses-list" id="expensesList">
+                    <!-- Expenses will be populated here -->
+                </div>
+            </section>
+
+            <!-- History Tab -->
+            <section class="tab-content" id="history">
+                <div class="tab-header">
+                    <h2>Transaction History</h2>
+                </div>
+                <div class="history-list" id="historyList">
+                    <!-- History will be populated here -->
+                </div>
+            </section>
+
+            <!-- Settlements Tab -->
+            <section class="tab-content" id="settlements">
+                <div class="tab-header">
+                    <h2>Settlements</h2>
+                </div>
+                
+                <div class="settlements-list" id="settlementsList">
+                    <!-- Settlements will be populated here -->
+                </div>
+            </section>
+
+            <!-- Sync Tab -->
+            <section class="tab-content" id="sync">
+                <div class="tab-header">
+                    <h2>GitHub Sync</h2>
+                </div>
+                
+                <div class="github-setup card">
+                    <div class="card__body">
+                        <h3>GitHub Sync Setup</h3>
+                        <div class="github-form">
+                            <div class="form-group">
+                                <label class="form-label" for="githubToken">GitHub Token</label>
+                                <input type="password" id="githubToken" class="form-control" placeholder="ghp_...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="gistId">Gist ID</label>
+                                <input type="text" id="gistId" class="form-control" placeholder="Enter existing Gist ID or leave empty">
+                            </div>
+                            <div class="github-actions">
+                                <button class="btn btn--primary" id="syncData">
+                                    <span>🔄</span> Sync Data
+                                </button>
+                                <button class="btn btn--outline" id="createGist">
+                                    <span>🆕</span> Create New Gist
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Notification -->
+        <div class="notification hidden" id="notification">
+            <span class="notification-text"></span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

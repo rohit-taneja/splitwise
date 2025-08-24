@@ -10,13 +10,18 @@ class SplitEasy {
         // Color palette for user avatars
         this.colorPalette = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
         
-        this.init();
     }
     
-    init() {
+    async init() {
         this.loadFromLocalStorage();
         this.loadSampleData();
         this.initializeTheme();
+
+        document.body.classList.add('loading');
+        if (this.githubToken && this.gistId) {
+            await this.syncData();
+        }
+        document.body.classList.remove('loading');
         
         // Wait for DOM to be fully ready, then setup
         if (document.readyState === 'loading') {
@@ -28,7 +33,6 @@ class SplitEasy {
             this.setupEventListeners();
             this.switchTab('users');
         }
-        this.syncData()
     }
     
     setupEventListeners() {
@@ -109,6 +113,14 @@ class SplitEasy {
             gistInput.addEventListener('input', (e) => {
                 this.gistId = e.target.value;
                 localStorage.setItem('gistId', this.gistId);
+            });
+        }
+
+        // Settlement management
+        const simplifySettlementsCheckbox = document.getElementById('simplifySettlements');
+        if (simplifySettlementsCheckbox) {
+            simplifySettlementsCheckbox.addEventListener('change', () => {
+                this.renderSettlements();
             });
         }
     }
@@ -242,7 +254,7 @@ class SplitEasy {
         }
     }
     
-    addUser() {
+    async addUser() {
         const nameInput = document.getElementById('userName');
         if (!nameInput) {
             this.showNotification('User name input not found', 'error');
@@ -275,17 +287,17 @@ class SplitEasy {
         this.renderUsers();
         this.updateExpenseForm();
         this.saveToLocalStorage();
-        this.autoSync();
+        await this.autoSync();
         this.showNotification(`${name} added successfully!`, 'success');
     }
     
-    removeUser(userId) {
+    async removeUser(userId) {
         const user = this.users.find(u => u.id === userId);
         if (!user) return;
         
         // Check if user has expenses
         const hasExpenses = this.expenses.some(expense => 
-            expense.payer === userId || expense.participants.includes(userId)
+            expense.payer === userId || expense.participants.some(p => p.id === userId)
         );
         
         if (hasExpenses) {
@@ -297,7 +309,7 @@ class SplitEasy {
         this.renderUsers();
         this.updateExpenseForm();
         this.saveToLocalStorage();
-        this.autoSync();
+        await this.autoSync();
         this.showNotification(`${user.name} removed successfully!`, 'success');
     }
     
@@ -323,8 +335,8 @@ class SplitEasy {
         usersList.innerHTML = this.users.map(user => {
             const balance = balances[user.id] || 0;
             const balanceText = balance === 0 ? 'Settled' : 
-                               balance > 0 ? `Owes $${Math.abs(balance).toFixed(2)}` : 
-                               `Owed $${Math.abs(balance).toFixed(2)}`;
+                               balance > 0 ? `Owes ₹${Math.abs(balance).toFixed(2)}` : 
+                               `Owed ₹${Math.abs(balance).toFixed(2)}`;
             const balanceClass = balance === 0 ? 'balanced' : balance > 0 ? 'owes' : 'owed';
             
             return `
@@ -364,15 +376,23 @@ class SplitEasy {
                     ${user.name.charAt(0).toUpperCase()}
                 </div>
                 <label class="participant-name" for="participant-${user.id}">${user.name}</label>
+                <input type="number" class="participant-amount-input" style="width: 80px; margin-left: auto;" placeholder="Split">
             </div>
         `).join('');
     }
     
-    addExpense() {
+    async addExpense() {
         const description = document.getElementById('expenseDescription')?.value?.trim();
         const amount = parseFloat(document.getElementById('expenseAmount')?.value || '0');
         const payer = document.getElementById('expensePayer')?.value;
-        const participants = Array.from(document.querySelectorAll('.participant-checkbox:checked')).map(cb => cb.value);
+        const participants = Array.from(document.querySelectorAll('.participant-checkbox:checked')).map(cb => {
+            const amountInput = cb.closest('.participant-item').querySelector('.participant-amount-input');
+            const amount = parseFloat(amountInput.value);
+            return {
+                id: cb.value,
+                amount: isNaN(amount) ? null : amount
+            };
+        });
         
         if (!description) {
             this.showNotification('Please enter a description', 'error');
@@ -392,6 +412,15 @@ class SplitEasy {
         if (participants.length === 0) {
             this.showNotification('Please select at least one participant', 'error');
             return;
+        }
+
+        const customSplitParticipants = participants.filter(p => p.amount !== null);
+        if (customSplitParticipants.length > 0 && customSplitParticipants.length === participants.length) {
+            const customSplitTotal = customSplitParticipants.reduce((sum, p) => sum + p.amount, 0);
+            if (Math.abs(customSplitTotal - amount) > 0.01) { // Use a tolerance for float comparison
+                this.showNotification(`The sum of split amounts (₹${customSplitTotal.toFixed(2)}) does not match the total expense amount (₹${amount.toFixed(2)}).`, 'error');
+                return;
+            }
         }
         
         const expense = {
@@ -418,8 +447,41 @@ class SplitEasy {
         
         this.renderExpenses();
         this.saveToLocalStorage();
-        this.autoSync();
+        await this.autoSync();
         this.showNotification('Expense added successfully!', 'success');
+    }
+
+    async deleteExpense(expenseId) {
+        this.expenses = this.expenses.filter(expense => expense.id !== expenseId);
+        this.renderExpenses();
+        this.saveToLocalStorage();
+        await this.autoSync();
+        this.showNotification('Expense deleted successfully!', 'success');
+    }
+
+    editExpense(expenseId) {
+        const expense = this.expenses.find(e => e.id === expenseId);
+        if (!expense) return;
+
+        document.getElementById('expenseDescription').value = expense.description;
+        document.getElementById('expenseAmount').value = expense.amount;
+        document.getElementById('expensePayer').value = expense.payer;
+
+        document.querySelectorAll('.participant-checkbox').forEach(cb => {
+            const participant = expense.participants.find(p => p.id === cb.value);
+            cb.checked = !!participant;
+            const amountInput = cb.closest('.participant-item').querySelector('.participant-amount-input');
+            if (participant && participant.amount !== null) {
+                amountInput.value = participant.amount;
+            } else {
+                amountInput.value = '';
+            }
+        });
+
+        this.expenses = this.expenses.filter(e => e.id !== expenseId);
+
+        document.querySelector('.add-expense-form').scrollIntoView({ behavior: 'smooth' });
+        this.showNotification('Editing expense. Make changes and click "Add Expense".', 'info');
     }
     
     renderExpenses() {
@@ -443,32 +505,45 @@ class SplitEasy {
         
         expensesList.innerHTML = sortedExpenses.map(expense => {
             const payer = this.users.find(u => u.id === expense.payer);
-            const participants = expense.participants.map(id => this.users.find(u => u.id === id)).filter(Boolean);
-            const splitAmount = expense.amount / expense.participants.length;
-            
+            const participants = expense.participants.map(p => {
+                const user = this.users.find(u => u.id === p.id);
+                return { ...user, ...p };
+            }).filter(Boolean);
+
+            const hasCustomSplit = expense.participants.some(p => p.amount !== null);
+            const splitAmountText = hasCustomSplit
+                ? 'Uneven split'
+                : `₹${(expense.amount / (expense.participants.length || 1)).toFixed(2)} per person`;
+
             return `
-                <div class="expense-card">
+                <div class="expense-card" data-expense-id="${expense.id}">
                     <div class="expense-header">
                         <h3 class="expense-description">${expense.description}</h3>
-                        <div class="expense-amount">$${expense.amount.toFixed(2)}</div>
+                        <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
                     </div>
                     <div class="expense-details">
                         <div class="expense-payer">
                             <div class="user-avatar" style="background-color: ${payer?.color}; width: 24px; height: 24px; font-size: 12px;">
-                                ${payer?.name.charAt(0).toUpperCase()}
+                                ${payer?.name?.charAt(0).toUpperCase() || '?'}
                             </div>
-                            <span>Paid by ${payer?.name}</span>
+                            <span>Paid by ${payer?.name || 'Unknown'}</span>
                         </div>
                         <div class="expense-participants">
                             ${participants.map(participant => `
                                 <div class="expense-participant" style="background-color: ${participant.color}" title="${participant.name}">
-                                    ${participant.name.charAt(0).toUpperCase()}
+                                    ${participant.name?.charAt(0).toUpperCase() || '?'}
                                 </div>
                             `).join('')}
                         </div>
                     </div>
-                    <div style="margin-top: 8px; font-size: 12px; color: var(--color-text-secondary);">
-                        $${splitAmount.toFixed(2)} per person • ${expense.date}
+                    <div class="expense-footer">
+                        <div style="font-size: 12px; color: var(--color-text-secondary);">
+                            ${splitAmountText} • ${expense.date}
+                        </div>
+                        <div class="expense-actions">
+                            <button class="btn-icon" onclick="window.app.editExpense('${expense.id}')" title="Edit expense">✏️</button>
+                            <button class="btn-icon danger" onclick="window.app.deleteExpense('${expense.id}')" title="Delete expense">🗑️</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -507,7 +582,7 @@ class SplitEasy {
         historyList.innerHTML = allTransactions.map(transaction => {
             if (transaction.type === 'expense') {
                 const payer = this.users.find(u => u.id === transaction.payer);
-                const participants = transaction.participants.map(id => this.users.find(u => u.id === id)).filter(Boolean);
+                const participants = transaction.participants.map(p => this.users.find(u => u.id === p.id)).filter(Boolean);
                 
                 return `
                     <div class="history-item">
@@ -518,11 +593,11 @@ class SplitEasy {
                         <div class="expense-details">
                             <div class="expense-payer">
                                 <div class="user-avatar" style="background-color: ${payer?.color}; width: 24px; height: 24px; font-size: 12px;">
-                                    ${payer?.name.charAt(0).toUpperCase()}
+                                    ${payer?.name?.charAt(0).toUpperCase() || '?'}
                                 </div>
-                                <span>${payer?.name} paid $${transaction.amount.toFixed(2)}</span>
+                                <span>${payer?.name || 'Unknown'} paid ₹${transaction.amount.toFixed(2)}</span>
                             </div>
-                            <div class="expense-amount">$${transaction.amount.toFixed(2)}</div>
+                            <div class="expense-amount">₹${transaction.amount.toFixed(2)}</div>
                         </div>
                     </div>
                 `;
@@ -539,14 +614,14 @@ class SplitEasy {
                         <div class="settlement-info">
                             <div class="settlement-parties">
                                 <div class="user-avatar" style="background-color: ${from?.color}; width: 24px; height: 24px; font-size: 12px;">
-                                    ${from?.name.charAt(0).toUpperCase()}
+                                    ${from?.name?.charAt(0).toUpperCase() || '?'}
                                 </div>
-                                <span>${from?.name} paid ${to?.name}</span>
+                                <span>${from?.name || 'Unknown'} paid ${to?.name || 'Unknown'}</span>
                                 <div class="user-avatar" style="background-color: ${to?.color}; width: 24px; height: 24px; font-size: 12px;">
-                                    ${to?.name.charAt(0).toUpperCase()}
+                                    ${to?.name?.charAt(0).toUpperCase() || '?'}
                                 </div>
                             </div>
-                            <div class="settlement-amount">$${transaction.amount.toFixed(2)}</div>
+                            <div class="settlement-amount">₹${transaction.amount.toFixed(2)}</div>
                         </div>
                     </div>
                 `;
@@ -557,29 +632,54 @@ class SplitEasy {
     calculateBalances() {
         const balances = {};
         this.users.forEach(user => balances[user.id] = 0);
-        
+
         this.expenses.forEach(expense => {
-            const splitAmount = expense.amount / expense.participants.length;
-            
-            // Payer gets credited
             balances[expense.payer] -= expense.amount;
-            
-            // Each participant owes their share
-            expense.participants.forEach(participantId => {
-                balances[participantId] += splitAmount;
-            });
+
+            const participantsWithCustomSplit = expense.participants.filter(p => p.amount !== null);
+            const participantsWithEqualSplit = expense.participants.filter(p => p.amount === null);
+
+            if (participantsWithCustomSplit.length > 0) {
+                const customSplitTotal = participantsWithCustomSplit.reduce((sum, p) => sum + p.amount, 0);
+
+                participantsWithCustomSplit.forEach(p => {
+                    balances[p.id] += p.amount;
+                });
+
+                if (participantsWithEqualSplit.length > 0) {
+                    const remainingAmount = expense.amount - customSplitTotal;
+                    const equalSplitAmount = remainingAmount / (participantsWithEqualSplit.length || 1);
+                    participantsWithEqualSplit.forEach(p => {
+                        balances[p.id] += equalSplitAmount;
+                    });
+                }
+            } else {
+                const splitAmount = expense.amount / (expense.participants.length || 1);
+                expense.participants.forEach(participant => {
+                    balances[participant.id] += splitAmount;
+                });
+            }
         });
-        
+
         // Apply completed settlements
         this.settlements.filter(s => s.completed).forEach(settlement => {
             balances[settlement.from] -= settlement.amount;
             balances[settlement.to] += settlement.amount;
         });
-        
+
         return balances;
     }
     
     calculateSettlements() {
+        const simplify = document.getElementById('simplifySettlements')?.checked;
+        if (simplify) {
+            return this.calculateSimplifiedSettlements();
+        } else {
+            return this.calculateDetailedSettlements();
+        }
+    }
+
+    calculateSimplifiedSettlements() {
         const balances = this.calculateBalances();
         const settlements = [];
         
@@ -625,6 +725,98 @@ class SplitEasy {
         
         return settlements;
     }
+
+    calculateDetailedSettlements() {
+        const detailedDebts = [];
+        this.expenses.forEach(expense => {
+            const payer = expense.payer;
+            const amount = expense.amount;
+            const participants = expense.participants;
+
+            const participantsWithCustomSplit = participants.filter(p => p.amount !== null);
+            const participantsWithEqualSplit = participants.filter(p => p.amount === null);
+
+            if (participantsWithCustomSplit.length > 0) {
+                const customSplitTotal = participantsWithCustomSplit.reduce((sum, p) => sum + p.amount, 0);
+
+                participantsWithCustomSplit.forEach(p => {
+                    if (p.id !== payer) {
+                        detailedDebts.push({
+                            from: p.id,
+                            to: payer,
+                            amount: p.amount
+                        });
+                    }
+                });
+
+                if (participantsWithEqualSplit.length > 0) {
+                    const remainingAmount = amount - customSplitTotal;
+                    const equalSplitAmount = remainingAmount / participantsWithEqualSplit.length;
+                    participantsWithEqualSplit.forEach(p => {
+                        if (p.id !== payer) {
+                            detailedDebts.push({
+                                from: p.id,
+                                to: payer,
+                                amount: equalSplitAmount
+                            });
+                        }
+                    });
+                }
+            } else {
+                const splitAmount = amount / (participants.length || 1);
+                participants.forEach(participant => {
+                    if (participant.id !== payer) {
+                        detailedDebts.push({
+                            from: participant.id,
+                            to: payer,
+                            amount: splitAmount
+                        });
+                    }
+                });
+            }
+        });
+
+        const netDebts = {}; // Using an object as a map
+
+        detailedDebts.forEach(debt => {
+            const key = [debt.from, debt.to].sort().join('-');
+            if (!netDebts[key]) {
+                netDebts[key] = {
+                    user1: debt.from < debt.to ? debt.from : debt.to,
+                    user2: debt.from < debt.to ? debt.to : debt.from,
+                    balance: 0 // positive if user1 owes user2, negative if user2 owes user1
+                };
+            }
+
+            if (debt.from < debt.to) {
+                netDebts[key].balance += debt.amount;
+            } else {
+                netDebts[key].balance -= debt.amount;
+            }
+        });
+
+        const settlements = [];
+        for (const key in netDebts) {
+            const netDebt = netDebts[key];
+            if (Math.abs(netDebt.balance) > 0.01) {
+                if (netDebt.balance > 0) {
+                    settlements.push({
+                        from: netDebt.user1,
+                        to: netDebt.user2,
+                        amount: netDebt.balance
+                    });
+                } else {
+                    settlements.push({
+                        from: netDebt.user2,
+                        to: netDebt.user1,
+                        amount: -netDebt.balance
+                    });
+                }
+            }
+        }
+
+        return settlements;
+    }
     
     renderSettlements() {
         const settlementsList = document.getElementById('settlementsList');
@@ -654,16 +846,16 @@ class SplitEasy {
                     <div class="settlement-info">
                         <div class="settlement-parties">
                             <div class="user-avatar" style="background-color: ${from?.color}">
-                                ${from?.name.charAt(0).toUpperCase()}
+                                ${from?.name?.charAt(0).toUpperCase() || '?'}
                             </div>
-                            <span>${from?.name}</span>
+                            <span>${from?.name || 'Unknown'}</span>
                             <div class="settlement-arrow">→</div>
-                            <span>${to?.name}</span>
+                            <span>${to?.name || 'Unknown'}</span>
                             <div class="user-avatar" style="background-color: ${to?.color}">
-                                ${to?.name.charAt(0).toUpperCase()}
+                                ${to?.name?.charAt(0).toUpperCase() || '?'}
                             </div>
                         </div>
-                        <div class="settlement-amount">$${settlement.amount.toFixed(2)}</div>
+                        <div class="settlement-amount">₹${settlement.amount.toFixed(2)}</div>
                     </div>
                     ${!settlement.completed ? `
                         <div class="settlement-actions">
@@ -681,7 +873,7 @@ class SplitEasy {
         }).join('');
     }
     
-    settleUp(fromId, toId, amount) {
+    async settleUp(fromId, toId, amount) {
         const settlement = {
             id: `${fromId}-${toId}-${Date.now()}`,
             from: fromId,
@@ -695,7 +887,7 @@ class SplitEasy {
         this.renderSettlements();
         this.renderUsers(); // Update balances
         this.saveToLocalStorage();
-        this.autoSync();
+        await this.autoSync();
         
         const fromUser = this.users.find(u => u.id === fromId);
         const toUser = this.users.find(u => u.id === toId);
@@ -784,9 +976,10 @@ class SplitEasy {
                 }
                 
                 // Then update with current data
-                await this.updateGist();
+                // await this.updateGist();
                 this.updateSyncStatus('success', 'Synced!');
-                this.showNotification('Data synced successfully!', 'success');
+                // this.showNotification('Data synced successfully!', 'success');
+                console.log('Github Data synced successfully!');
             } else {
                 throw new Error('Failed to fetch gist');
             }
@@ -840,12 +1033,12 @@ class SplitEasy {
     }
     
     updateSyncStatus(status, text) {
-        const syncStatus = document.getElementById('syncStatus');
-        if (syncStatus) {
-            syncStatus.className = `sync-status ${status}`;
-            const syncText = syncStatus.querySelector('.sync-text');
-            if (syncText) syncText.textContent = text;
-        }
+        // const syncStatus = document.getElementById('syncStatus');
+        // if (syncStatus) {
+        //     syncStatus.className = `sync-status ${status}`;
+        //     const syncText = syncStatus.querySelector('.sync-text');
+        //     if (syncText) syncText.textContent = text;
+        // }
     }
     
     // Local Storage
@@ -862,8 +1055,18 @@ class SplitEasy {
             const settlements = localStorage.getItem('spliteasy-settlements');
             
             if (users) this.users = JSON.parse(users);
-            if (expenses) this.expenses = JSON.parse(expenses);
+            if (expenses) {
+                this.expenses = JSON.parse(expenses).map(expense => {
+                    if (expense.participants.length > 0 && typeof expense.participants[0] === 'string') {
+                        expense.participants = expense.participants.map(id => ({ id, amount: null }));
+                    }
+                    return expense;
+                });
+            }
             if (settlements) this.settlements = JSON.parse(settlements);
+
+            this.githubToken = localStorage.getItem('githubToken') || '';
+            this.gistId = localStorage.getItem('gistId') || '';
         } catch (error) {
             console.error('Error loading from localStorage:', error);
         }
@@ -892,18 +1095,9 @@ class SplitEasy {
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
+async function main() {
     window.app = new SplitEasy();
-});
-
-// Fallback initialization if DOMContentLoaded has already fired
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        if (!window.app) {
-            window.app = new SplitEasy();
-        }
-    });
-} else {
-    window.app = new SplitEasy();
+    await window.app.init();
 }
+
+main();

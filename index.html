@@ -16,10 +16,10 @@
                     <h1>SplitEasy</h1>
                 </div>
                 <div class="header-actions">
-                    <div class="sync-status" id="syncStatus">
+                    <!-- <div class="sync-status" id="syncStatus">
                         <span class="sync-icon">🔄</span>
                         <span class="sync-text">Ready</span>
-                    </div>
+                    </div> -->
                     <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
                         <span class="theme-icon">🌙</span>
                     </button>
@@ -132,6 +132,12 @@
             <section class="tab-content" id="settlements">
                 <div class="tab-header">
                     <h2>Settlements</h2>
+                </div>
+                <div class="settlements-header">
+                    <div class="switch-inline">
+                        <input type="checkbox" id="simplifySettlements" class="switch-input" checked>
+                        <label for="simplifySettlements" class="switch-label">Simplify Settlements</label>
+                    </div>
                 </div>
                 
                 <div class="settlements-list" id="settlementsList">

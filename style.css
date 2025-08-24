@@ -997,10 +997,21 @@ select.form-control {
   color: var(--color-text);
 }
 
-.user-balance {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: var(--space-4) 0 0 0;
+.user-balance.balanced {
+    color: var(--color-text-secondary);
+}
+
+body.loading .app {
+    display: none;
+}
+
+body.loading::before {
+    content: 'Loading...';
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-size: 2rem;
 }
 
 .user-actions {
@@ -1149,6 +1160,18 @@ select.form-control {
   color: white;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
+}
+
+.expense-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.expense-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* History */

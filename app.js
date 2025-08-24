@@ -978,7 +978,7 @@ class SplitEasy {
                 // Then update with current data
                 // await this.updateGist();
                 this.updateSyncStatus('success', 'Synced!');
-                this.showNotification('Data synced successfully!', 'success');
+                // this.showNotification('Data synced successfully!', 'success');
                 console.log('Github Data synced successfully!');
             } else {
                 throw new Error('Failed to fetch gist');

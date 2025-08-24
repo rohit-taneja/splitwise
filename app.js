@@ -123,6 +123,15 @@ class SplitEasy {
                 this.renderSettlements();
             });
         }
+
+        // Collapsible form
+        const collapsibleHeader = document.querySelector('.collapsible-header');
+        if (collapsibleHeader) {
+            collapsibleHeader.addEventListener('click', () => {
+                const form = collapsibleHeader.closest('.add-expense-form');
+                form.classList.toggle('closed');
+            });
+        }
     }
     
     loadGitHubCredentials() {

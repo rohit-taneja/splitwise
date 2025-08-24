@@ -1049,6 +1049,34 @@ body.loading::before {
   margin-bottom: var(--space-24);
 }
 
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: var(--space-16);
+}
+
+.collapsible-header h3 {
+    margin: 0;
+}
+
+.collapsible-icon {
+    transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.add-expense-form.closed .collapsible-content {
+    display: none;
+}
+
+.add-expense-form.closed .collapsible-icon {
+    transform: rotate(-90deg);
+}
+
+.add-expense-form .card__body.collapsible-content {
+    padding-top: 0;
+}
+
 .participants-list {
   display: flex;
   flex-direction: column;
